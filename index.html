@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elefisch Translate</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --border-color: #cbd5e1;
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .flag {
+            display: inline-flex;
+            flex-direction: column;
+            width: 48px;
+            height: 32px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .flag-top {
+            background-color: #7dd3fc;
+            flex: 1;
+        }
+
+        .flag-bottom {
+            background-color: #ffffff;
+            flex: 1;
+        }
+
+        header p {
+            color: #64748b;
+            margin-top: 5px;
+        }
+
+        .translator-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .translator-box {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .output-area {
+            background-color: #f8fafc;
+            cursor: not-allowed;
+        }
+
+        .action-bar {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1><span class="flag"><span class="flag-top"></span><span class="flag-bottom"></span></span> Elefisch Translate</h1>
+            <p>Das offizielle Übersetzungstool für die Elefisch-Sprache</p>
+        </header>
+
+        <div class="translator-box">
+            <!-- Eingabe Deutsch -->
+            <div class="panel">
+                <div class="panel-header">Deutsch</div>
+                <textarea id="inputField" placeholder="Text zum Übersetzen eingeben..."></textarea>
+            </div>
+
+            <!-- Ausgabe Elefisch -->
+            <div class="panel">
+                <div class="panel-header">Elefisch</div>
+                <textarea id="outputField" class="output-area" readonly placeholder="Übersetzung..."></textarea>
+                <div class="action-bar">
+                    <button class="btn" onclick="copyText()">Kopieren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vokalRegex = /(ue|ae|oe|au|ei|eu|äu|ie|ai|ou|oo|aa|ee|[aeiouäöüAEIOUÄÖÜ])/;
+
+        function silbenTrennen(wort) {
+            // Spezifische Korrektur für "tion" Muster: trenne zwischen i und o
+            let wortVorbehandelt = wort.replace(/([^aeiouäöü])io/gi, '$1i-o');
+            
+            // Falls das Wort sehr kurz ist und keine Ersetzung stattfand
+            if (wortVorbehandelt.length <= 3 && !wortVorbehandelt.includes('-')) return [wort];
+            
+            // Wenn durch die Vorbehandlung bereits Trennungen existieren, diese respektieren
+            let teile = wortVorbehandelt.split('-');
+            let alleSilben = [];
+            
+            for (let teil of teile) {
+                if (teil.length <= 3) {
+                    alleSilben.push(teil);
+                    continue;
+                }
+                
+                let aktuellesWort = teil;
+                let silben = [];
+                let safeGuard = 0;
+                while (aktuellesWort.length > 0 && safeGuard < 10) {
+                    safeGuard++;
+                    let match = aktuellesWort.match(vokalRegex);
+                    if (!match) {
+                        silben.push(aktuellesWort);
+                        break;
+                    }
+                    
+                    let vokalEndeIdx = match.index + match.length;
+                    let rest = aktuellesWort.substring(vokalEndeIdx);
+                    let folgeKonsonanten = rest.match(/^([^aeiouäöüueaeoeaueieuäuaiouooaaee]*)/i);
+                    
+                    if (!folgeKonsonanten || folgeKonsonanten[0].length === 0) {
+                        silben.push(aktuellesWort.substring(0, vokalEndeIdx));
+                        aktuellesWort = rest;
+                    } else if (folgeKonsonanten[0].length === 1) {
+                        if (rest.length === 1) {
+                            silben.push(aktuellesWort);
+                            break;
+                        }
+                        silben.push(aktuellesWort.substring(0, vokalEndeIdx));
+                        aktuellesWort = rest;
+                    } else {
+                        let trennung = vokalEndeIdx + 1; 
+                        silben.push(aktuellesWort.substring(0, trennung));
+                        aktuellesWort = aktuellesWort.substring(trennung);
+                    }
+                }
+                alleSilben.push(...silben.filter(s => s.length > 0));
+            }
+            
+            return alleSilben;
+        }
+
+        function übersetzeSilbe(silbe) {
+            let match = silbe.match(vokalRegex);
+            if (!match) return silbe;
+
+            let vokal = match[0];
+            let startIdx = match.index;
+            let endIdx = startIdx + vokal.length;
+
+            let anfang = silbe.substring(0, startIdx);
+            let ende = silbe.substring(endIdx);
+
+            let lKonsonant = "l";
+            let fKonsonant = "f";
+            let vokalKlein = vokal.toLowerCase();
+
+            return anfang + vokal + lKonsonant + vokalKlein + fKonsonant + vokalKlein + ende;
+        }
+
+        function textZuElefisch(text) {
+            if (!text.trim()) return "";
+            
+            let woerter = text.split(/(\s+)/);
+            
+            return woerter.map(wort => {
+                if (/^\s+$/.test(wort)) return wort;
+                
+                let wortClean = wort.replace(/[^\w\säöüÄÖÜß]/g, '');
+                let satzzeichen = wort.substring(wortClean.length);
+                
+                if (!wortClean) return wort;
+
+                let istGross = wortClean[0] === wortClean[0].toUpperCase() && wortClean[0] !== wortClean[0].toLowerCase();
+
+                let silben = silbenTrennen(wortClean);
+                let uebersetztesWort = silben.map(s => übersetzeSilbe(s)).join('');
+                
+                uebersetztesWort = uebersetztesWort.toLowerCase();
+                if (istGross) {
+                    uebersetztesWort = uebersetztesWort.charAt(0).toUpperCase() + uebersetztesWort.slice(1);
+                }
+                
+                return uebersetztesWort + satzzeichen;
+            }).join('');
+        }
+
+        let animationTimer = null;
+        let aktuellerZielText = "";
+        let angezeigterText = "";
+
+        document.getElementById('inputField').addEventListener('input', function(e) {
+            aktuellerZielText = textZuElefisch(e.target.value);
+            
+            if (!animationTimer) {
+                animationTimer = setInterval(function() {
+                    let outputField = document.getElementById('outputField');
+                    
+                    // Bestimme wie viele Zeichen übereinstimmen
+                    let i = 0;
+                    while (i < angezeigterText.length && i < aktuellerZielText.length && angezeigterText[i] === aktuellerZielText[i]) {
+                        i++;
+                    }
+                    
+                    if (angezeigterText.length > i) {
+                        // Lösche das letzte unpassende Zeichen
+                        angezeigterText = angezeigterText.slice(0, -1);
+                    } else if (angezeigterText.length < aktuellerZielText.length) {
+                        // Füge genau einen nächsten Buchstaben hinzu für flüssige Animation
+                        angezeigterText += aktuellerZielText[angezeigterText.length];
+                    }
+                    
+                    outputField.value = angezeigterText;
+                    
+                    if (angezeigterText === aktuellerZielText) {
+                        clearInterval(animationTimer);
+                        animationTimer = null;
+                    }
+                }, 15); // Sehr schnelle und absolut flüssige Schritt-für-Schritt-Buchstaben-Animation
+            }
+        });
+
+        function copyText() {
+            let copyText = document.getElementById("outputField");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+        }
+    </script>
+</body>
+</html>
